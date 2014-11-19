@@ -15,16 +15,36 @@ From PyPi:
 
     pip install wfdbpy
 
-From Source:
+From Source (builds extension in place, by default):
 
     git clone https://github.com/matt-black/wfdbpy
+    cd wfdbpy
+    pip install -r requirements.txt
+    ./setup.sh
+    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib64
+
+Using Vagrant:
+
+    git clone https://github.com/matt-black/wfdbpy
+    cd wfdbpy
+    vagrant up
 
 ## Documentation
 
-TODO
+End user documentation:
+
+#### Developers
+
+All function/module/class documentation should use Google-style docstrings.
+
+Docs can be built from source by executing `make html` from the /doc directory
+
+## Testing
+
+Tests use [py.test](pytest.org). To run the tests, execute `py.test test` from the project root.
 
 ## License
 
 This library is licensed under GPLv3.
 
-For more information, see `LICENSE` in the project root directory. 
+For more information, see `LICENSE` in the project root directory.

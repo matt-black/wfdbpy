@@ -30,7 +30,11 @@ rm -rf wfdb-10.5.23
 echo WFDB install success
 
 #BUILD THE MODULE
-##TODO
+cd /vagrant
+chmod +x setup.sh
+./setup.sh
+echo export LD_LIBRARY_PATH=/usr/local/lib64 >> ~/.bashrc
+py.test test  #run tests
 SCRIPT
 
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|

@@ -118,3 +118,8 @@ target/
 *.i*86
 *.x86_64
 *.hex
+
+
+### Added by Matt ###
+# Cython compilation results
+wfdbpy/*.c

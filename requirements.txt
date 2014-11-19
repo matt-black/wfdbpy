@@ -1,0 +1,10 @@
+Cython==0.21.1
+Jinja2==2.7.3
+MarkupSafe==0.23
+Pygments==2.0.1
+Sphinx==1.2.3
+docutils==0.12
+numpy==1.9.1
+py==1.4.26
+pytest==2.6.4
+sphinxcontrib-napoleon==0.2.8

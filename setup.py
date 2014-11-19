@@ -7,15 +7,16 @@ from Cython.Distutils import build_ext
 NAME = "wfdbpy"
 VERSION = "0.1"
 DESCR = "A Cython wrapper for the Physionet WFDB library"
-REQURES = ['numpy', 'cython']
+REQUIRES = ['numpy', 'cython']
 
 AUTHOR = "Matt Black"
 EMAIL = "matt.black7@gmail.com"
+URL = "http://matt-black.github.io"
 
 LICENSE = "GPLv3"
 
 SRC_DIR = "wfdbpy"
-SRC_FILES = None
+SRC_FILES = ["convert.pyx"]
 PACKAGES = [SRC_DIR]
 
 #find WFDB_HOME
@@ -30,9 +31,9 @@ for root, dirs, files in os.walk(".", topdown=False):
         if name.startswith(SRC_DIR) and (not name.endswith(".pxd") or
                                          name.endswith(".pyx")):
             os.remove(os.path.join(root, name))
-        for name in dirs:
-            if name in dirs_to_remove:
-                shutil.rmtree(name)
+    for name in dirs:
+        if name == "build":
+            shutil.rmtree(os.path.join(root,name))
 
 #define the extensions
 ext_conv = Extension(SRC_DIR,

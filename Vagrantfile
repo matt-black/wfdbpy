@@ -32,7 +32,8 @@ echo WFDB install success
 #BUILD THE MODULE
 cd /vagrant
 chmod +x setup.sh
-./setup.sh
+./setup.sh -c
+./setup.sh -b
 echo export LD_LIBRARY_PATH=/usr/local/lib64 >> ~/.bashrc
 py.test test  #run tests
 SCRIPT
@@ -46,9 +47,6 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   #config.vm.provider "virtualbox" do |vb|
   #  vb.gui = true
   #end
-
-  # Expose guest port 80 as localhost:8080
-  config.vm.network "forwarded_port", guest: 80, host: 8080
 
   # Install software deps on the machine
   config.vm.provision :shell, inline: $script

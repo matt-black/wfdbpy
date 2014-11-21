@@ -1,8 +1,10 @@
 import os, shutil, sys
+import numpy
 from os import path
 
 from setuptools import setup, Extension
 from Cython.Distutils import build_ext
+from Cython.Build import cythonize
 
 NAME = "wfdbpy"
 VERSION = "0.1"
@@ -24,29 +26,39 @@ WFDB_HOME = os.getenv('WFDB_HOME')
 if WFDB_HOME is None:  #did not find it
     WFDB_HOME = '/usr/local'
 
-#clean previous build
-dirs_to_remove = ["build"]
-for root, dirs, files in os.walk(".", topdown=False):
-    for name in files:
-        if name.startswith(SRC_DIR) and (not name.endswith(".pxd") or
-                                         name.endswith(".pyx")):
-            os.remove(os.path.join(root, name))
-    for name in dirs:
-        if name == "build":
-            shutil.rmtree(os.path.join(root,name))
+INCLUDE_DIRS = [os.path.join(WFDB_HOME, "include", "wfdb"),
+                numpy.get_include()]
 
 #define the extensions
-ext_conv = Extension(SRC_DIR,
-                     sources=[os.path.join(SRC_DIR, sf) for sf in SRC_FILES],
-                     include_dirs=[os.path.join(WFDB_HOME, "include", "wfdb")],
+ext_conv = Extension("wfdbpy.convert",
+                     sources=[os.path.join(SRC_DIR, "convert.pyx")],
+                     include_dirs=INCLUDE_DIRS,
                      libraries=["wfdb"],
                      language="c",
                      extra_compile_args=["-fopenmp", "-O3"],
                      extra_link_args=["-DSOME_DEFINE_OPT",
                                       "-L{}/lib64/".format(WFDB_HOME)]
                      )
+ext_sig = Extension("wfdbpy.signal",
+                    sources=[os.path.join(SRC_DIR, "signal.pyx")],
+                    include_dirs=INCLUDE_DIRS,
+                    libraries=["wfdb"],
+                    language="c",
+                    extra_compile_args=["-fopenmp", "-O3"],
+                    extra_link_args=["-DSOME_DEFINE_OPT",
+                                     "-L{}/lib64/".format(WFDB_HOME)]
+                    )
+ext_util = Extension("wfdbpy.util.test",
+                     sources=[os.path.join(SRC_DIR, "util", "test.pyx")],
+                     include_dirs=INCLUDE_DIRS,
+                     libraries=["wfdb"],
+                     language="c",
+                     extra_compile_args=["-fopenmp", "-O3"],
+                     extra_link_args=["-DSOME_DEFINE_OPT",
+                                      "-L{}/lib64/".format(WFDB_HOME)])
 
-EXTENSIONS = [ext_conv]
+
+EXTENSIONS = [ext_conv, ext_sig, ext_util]
 
 if __name__ == "__main__":
     setup(install_requires=REQUIRES,
@@ -63,5 +75,5 @@ if __name__ == "__main__":
           url=URL,
 
           cmdclass={"build_ext": build_ext},
-          ext_modules=EXTENSIONS
+          ext_modules=EXTENSIONS,
           )

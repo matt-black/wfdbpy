@@ -7,6 +7,7 @@ interacting with the library
 import functools
 from wfdbpy.util.error import WFDB_Error
 
+
 def wfdb_exec(char* name, **kwargs):
     """Executes the named wfdb application
 

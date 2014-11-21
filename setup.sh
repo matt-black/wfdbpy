@@ -11,10 +11,13 @@ function show_help()
 
 function clean()
 {
+    echo "Cleaning build remnants"
     #Cleans all build remnants
     rm -rf build
     rm -rf wfdbpy/*.c
     rm -rf wfdbpy/*.so
+    rm -rf wfdbpy/util/*.c
+    rm -rf wfdbpy/util/*.so
 
     #Clean pycache and *.pyc
     rm -rf test/__pycache__
@@ -25,6 +28,7 @@ function clean()
 
 function build()
 {
+    echo "Building the cython extensions"
     #Builds the extensions, inplace
     # adapted from: http://stackoverflow.com/questions/16993927/using-cython-to-link-python-to-a-shared-library
 
@@ -36,7 +40,12 @@ function build()
     python3 setup.py build_ext --inplace
 }
 
-while getopts "hbc" opt; do
+function pytest()
+{
+    py.test -s
+}
+
+while getopts "hbct" opt; do
     case "$opt" in
         h|\?)
             show_help
@@ -45,6 +54,8 @@ while getopts "hbc" opt; do
         b) build
            ;;
         c) clean
+           ;;
+        t) pytest
            ;;
     esac
 done

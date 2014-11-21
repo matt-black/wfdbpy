@@ -123,3 +123,4 @@ target/
 ### Added by Matt ###
 # Cython compilation results
 wfdbpy/*.c
+wfdbpy/util/*.c

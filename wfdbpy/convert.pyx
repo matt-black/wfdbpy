@@ -25,7 +25,7 @@ def _validate_date(char* date):
 
 
 #typedef for code->mnemonic converting functions
-ctypedef char* (*code_converter)(int code) 
+ctypedef char* (*code_converter)(int code)
 
 
 cdef class AnnotConverter:
@@ -33,7 +33,7 @@ cdef class AnnotConverter:
     """
 
     @classmethod
-    def code_to_string(self, int code, bint mnemonic=True, 
+    def code_to_string(self, int code, bint mnemonic=True,
 		       bint description=False, bint use_ecgcodes=False):
         """Converts `code` to a string mnemonic or description
 

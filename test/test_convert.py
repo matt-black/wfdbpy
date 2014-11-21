@@ -3,6 +3,7 @@ Test suite for conversion functions
 """
 import pytest
 from wfdbpy.convert import *
+from wfdbpy.util.test import *
 
 val_err_fmt = "Traceback (most recent call last)\n    ...\nValueError: {}"
 
@@ -15,6 +16,12 @@ class TestAnnotationConversion:
             'cust': (45, 'Z', 'This is a custom annot description')}
 
     converter = AnnotConverter()
+
+    @classmethod
+    def setup_class(cls):
+        """Calls wfdbquit before executing the tests in this class
+        """
+        call_wfdbquit()
 
     def test_code_mnemonic(self):
         """Test code->mnemonic conversions
@@ -53,6 +60,11 @@ class TestDateTimeConversion:
     """
     converter = DateTimeConverter()
 
+    def setup_class(cls):
+        """Calls wfdbquit before running tests for this class
+        """
+        call_wfdbquit()
+
     def test_time_to_string(self):
         """Test time->string conversions
         """
@@ -78,7 +90,6 @@ class TestDateTimeConversion:
         """
         ok_datstr = bytes('11/02/1991', encoding='ascii')
         bad_datstr = bytes('garbage//', encoding='ascii')  #should raise ValueError
-
         assert self.converter.string_to_date(ok_datstr) == 2448299
         with pytest.raises(ValueError):
             self.converter.string_to_date(bad_datstr)

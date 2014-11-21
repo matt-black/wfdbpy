@@ -159,6 +159,7 @@ cdef class SignalReader:
 
     def __enter__(self):
         self.init()
+        return self
 
     def __exit__(self, type, value, tb):
         self.finalize()  # deallocate the underlying signal

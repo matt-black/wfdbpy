@@ -8,7 +8,7 @@ from wfdbpy.util.error import *
 
 __cython_init = True
 
-def wfdbquit_decorator(test):
+def wfdbquit_before(test):
     """Decorator that calls wfdbquit() before running the test
     """
     def wrapper(*args, **kwargs):

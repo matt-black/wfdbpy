@@ -23,7 +23,7 @@ def call_wfdbquit():
     wfdb.wfdbquit()
 
 
-def read_100s(int num_samples):
+def read_100s(int num_samples, bint by_frame=False):
     """Read some signals from the 100s record of physionet
     """
     cdef wfdb.WFDB_Sample* v

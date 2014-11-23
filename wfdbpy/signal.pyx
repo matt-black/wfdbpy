@@ -4,20 +4,38 @@ Signal I/O utilities and classes for the WFDB library
 cimport wfdbpy.wfdb as wfdb
 from wfdbpy.util.error import *
 
-import numpy as np
-cimport numpy as np
-
 from cpython.mem cimport PyMem_Free, PyMem_Malloc, PyMem_Realloc
-from cpython.int cimport PyInt_FromLong
-from cpython.tuple cimport PyTuple_New, PyTuple_SetItem
-from python_ref cimport Py_INCREF
+
 __cython_init = True  # see: http://stackoverflow.com/questions/8024805/cython-compiled-c-extension-importerror-dynamic-module-does-not-define-init-fu
 
 #typedef for read functions (getvec, getframe)
 ctypedef int (*read_func)(wfdb.WFDB_Sample *vector)
 
 
-cdef class InputSignal:
+cdef class SignalInfo:
+    """Provides Pythonic access to an input signal
+    """
+
+    cdef bint read_only  # allow properties to be 'set'
+    cdef readonly char* record  # the record name
+    cdef wfdb.WFDB_Siginfo* _siginfo  # the underlying C struct
+
+    def __cinit__(self, char* record, int num_signals, bint read_only):
+        self.record = record
+        self.read_only = read_only
+        #initialize memory for the WFDB_Siginfo struct
+        self._siginfo = <wfdb.WFDB_Siginfo*>PyMem_Malloc(
+            num_signals*sizeof(wfdb.WFDB_Siginfo))
+        if not self._siginfo:
+            raise MemoryError("error initializing Siginfo struct memory")
+        #fill the underlying struct values
+        if wfdb.isigopen(record, self._siginfo, num_signals) != num_signals:
+            raise WFDB_CError("signal file did not have the expected # of signals")
+
+    def __dealloc__(self):
+        PyMem_Free(self._siginfo)
+
+cdef class SignalStream:
     """Provides Pythonic, stream-like access to an input signal
 
     Provides memory-management and access to underlying WFDB_Sample and
@@ -31,65 +49,57 @@ cdef class InputSignal:
     cdef char* record  # the record this signal belongs to
     cdef readonly int num_sig  # the number of signals
     cdef wfdb.WFDB_Sample* sample_array  # sample values
-    cdef wfdb.WFDB_Siginfo* siginfo_array  # info on each signal
+    cdef bint standalone  # standalone signal
+    cdef bint read_by_frame
+    cdef wfdb.WFDB_Siginfo* _siginfo_arr  # siginfo array for initializing the signal, if standalone
 
-    def __cinit__(self, char* record):
+    def __cinit__(self, char* record, int num_signals,
+                  by_frame=False, bint standalone=False):
+        cdef int sample_array_len  #length of sample array
+
         self.record = record
-        #figure out number of signals
-        cdef int nsig = wfdb.isigopen(self.record, NULL, 0)
-        if nsig < 1:
-            raise WFDB_CError("Unable to open signal file", nsig)
-        #initialize memory for structs
-        self.num_sig = self.__init_memory(nsig)
+        self.num_sig = num_signals
+        #need to allocate the underlying siginfo array, if standalone
+        if standalone:
+            self._siginfo_arr = <wfdb.WFDB_Siginfo*>PyMem_Malloc(
+                num_signals * sizeof(wfdb.WFDB_Siginfo))
+            if wfdb.isigopen(record, self._siginfo_arr, num_signals) != num_signals:
+                raise WFDB_Error("could not initialize the standalone stream")
 
-    cdef int __init_memory(self, int nsig):
-        """Initializes the memory for the underlying C structs
-
-        Notes:
-          Memory is initialized based on the assumption that the signal will be
-          read using `getvec`. To use `getframe`, reallocate memory by calling
-          `realloc_samples`
-
-        Args:
-          nsig (int): the number of signals in the record file
-
-        Returns:
-          the number of signals in the record group
-
-        Raises:
-          MemoryError: if memory for the structs can't be malloc'd
-          WFDB_CError: if the record file cannot be open
-        """
-        #initialize memory for sample array
-        self.sample_array = <wfdb.WFDB_Sample*>PyMem_Malloc(
-            nsig * sizeof(wfdb.WFDB_Sample))
+        #establish reading mode for the stream
+        if by_frame:
+            if not standalone:
+                raise WFDB_Error("cannot initialize a standalone stream to read by frame -- must manually call realloc_samples")
+            else:
+                j = 0
+                for i in range(num_signals):
+                    j += self._siginfo_arr[i].spf
+                sample_array_len = j * sizeof(wfdb.WFDB_Sample)
+        else:
+            sample_array_len = num_signals * sizeof(wfdb.WFDB_Sample)
+        self.sample_array = <wfdb.WFDB_Sample*>PyMem_Malloc(sample_array_len)
         if not self.sample_array:
-            raise MemoryError("insufficient memory for sample array")
-        #initialize memory for siginfo array
-        self.siginfo_array = <wfdb.WFDB_Siginfo*>PyMem_Malloc(
-            nsig * sizeof(wfdb.WFDB_Siginfo))
-        if not self.siginfo_array:
-            raise MemoryError("insufficient memory for signal info array")
+            raise MemoryError("error while alloc'ing memory for WFDB_Sample struct")
 
-        #open input signal file, verify nsig
-        if wfdb.isigopen(self.record, self.siginfo_array, nsig) != nsig:
-            raise WFDB_CError("Number of signals did not match expected")
-        return nsig
+    cpdef int realloc_samples(self, int num_samples):
+        """Reallocates the spaces in the sample_array
 
-    cdef int realloc_samples(self, bint frame_mode):
-        """Reallocates the memory for the WFDB_Sample array based on the
-        value of `frame_mode`
+        Useful for when switching reading modes b/t getvec and getframe
 
         Args:
-          frame_mode (bool): reallocate the memory for reading with `getframe`
+          num_samples (int): the number of samples to reallocate the array for
 
         Returns:
-          int:
-
-        Raises:
-          MemoryError: if memory couldn't be properly reallocated
+          int: 0 if successful, -1 if MemoryError
         """
-        raise NotImplementedError()
+        cdef wfdb.WFDB_Sample* temp
+        temp = <wfdb.WFDB_Sample*>PyMem_Realloc(
+            self.sample_array, num_samples * sizeof(wfdb.WFDB_Sample))
+        if temp == NULL:
+            return -1
+        else:
+            self.sample_array = temp
+            return 0
 
     def __iter__(self):
         return self
@@ -97,7 +107,7 @@ cdef class InputSignal:
     def __next__(self):
         cdef int rv = wfdb.getvec(self.sample_array)
         if rv > 0:  # POSSIBLE BUG: might need to check rv == nsig?
-            return self.samples
+            return self.value
         elif rv == -1:  # end of data
             raise StopIteration()
         #Errors while reading the file
@@ -106,7 +116,7 @@ cdef class InputSignal:
         else:
             raise WFDB_Error("unexpected failure while reading signal")
 
-    property samples:
+    property value:
         """The value of the signal at the current time
         """
         def __get__(self):
@@ -114,142 +124,49 @@ cdef class InputSignal:
 
     def __dealloc__(self):
         PyMem_Free(self.sample_array)
-        PyMem_Free(self.siginfo_array)
+        if self.standalone:
+            PyMem_Free(self._siginfo_arr)
 
 
 cdef class SignalReader:
-    """Provides Pythonic, read-only, stream-like access to an input signal for
-    the specified record
-
-    Args:
-      record (char*): the record to read signals for
-      frame_mode (bool): if `True`, read samples by frame
-
-    Attributes:
-
+    """SignalReader class
     """
 
-    cdef char* record  # the record to read signals for
-    cdef read_func func  # getvec or getframe
-    cdef readonly InputSignal _signal
-    cdef bint use_frame
+    cdef readonly SignalInfo info
+    cdef readonly SignalStream stream
+    cdef bint read_by_frame  # if True, use getframe... False -> getvec
 
-    def __cinit__(self, char* record, bint frame_mode=False):
-        self.record = record
-        self.use_frame = frame_mode
-        self._signal = InputSignal(self.record)
-
-    def init(self):
-        """Initializes the underlying signal so that the reader can start
-        """
-        self.jump_to_time(0)
-        if getattr(self, 'mode') == 'frame':
-            self._signal.reallocate_samples(True)
-
-    def finalize(self):
-        """Closes/deallocates all associated resources
-        """
-        pass
+    def __cinit__(self, char* record, bint by_frame=False):
+        cdef int nsig = wfdb.isigopen(record, NULL, 0)
+        if nsig <= 0:
+            raise WFDB_CError("Error opening signal file for record")
+        self.info = SignalInfo(record, nsig, read_only=True)
+        self.stream = SignalStream(record, nsig)
 
     def __iter__(self):
-        return self._signal
+        return self.stream
 
     def __next__(self):
-        return next(self._signal)
+        return next(self.stream)
 
     def __enter__(self):
-        self.init()
         return self
 
-    def __exit__(self, type, value, tb):
-        self.finalize()  # deallocate the underlying signal
-
-    cpdef int jump_to_time(self, int time):
-        """Jump the reader to the specified time value in the signal
-
-        Args:
-          time (int): the time to jump to (next call will yield values from this time)
-
-        Returns:
-          int : the return code for isigsettime
-        """
-        cdef int rv
-        rv = wfdb.isigsettime(time)
-        return rv
-
-    def read(self, int start=0, int stop=-1):
-        """Reads the values from the signal file into a NumPy array
-
-        Args:
-          start (int): time (sample #) to start reading from
-          stop (int): time (sample #) to stop reading at (inclusive), if -1, will read until EOF
-
-        Returns:
-          np.ndarray: NumPy array of WFDB_Samples for the time span
-        """
-        raise NotImplementedError()
-
-        #validate inputs
-        if stop < start and stop > 0:
-            raise ValueError("stop must be greater than start")
-        #establish looping protocol
-        cdef int i = 0  # loop counter
-        if stop < 0:
-            cond = lambda : True
-        else:
-            cond = lambda : start + i <= stop
-
-        """
-        while cond():  #loop
-            try:
-                cdef int[:] ret = self.next()
-                i++;  # iterate
-            except StopIteration:
-                break
-        """
-        return
-
-    def read_by_time(self, int[:] start, int[:] stop):
-        """Reads the values from the signal file into a NumPy array
-
-        Args:
-          start (int[4]): [HH, MM, SS, SSS] time to start reading from
-          stop (int[4]): [HH, MM, SS, SSS] time to stop reading from
-
-        Returns:
-          np.ndarray: NumPy array of sample values over the time span
-          Returned array has shape (num_signals, num_samples)
-        """
-        #convert to sample numbers
-        joiner = lambda x: ':'.join([str(x[i]) for i in range(3)]) + '.' + str(x[4])
-        strs = map(joiner, [start, stop])
-        times = [wfdb.strtim(bytes(s, 'ascii')) for s in strs]
-
-        return self.read(times[0], times[1])  # call self.read()
-
-    def set_sampling_frequency(self, double frequency):
-        """Sets the sampling frequency to use when reading the signals
-
-        Notes:
-          should only be invoked BEFORE reading any signal values
-          if this is not called before reading, the default frequency from the header file is used
-        Args:
-          frequency (double): the frequency, in Hz, to sample the signals at
-        """
-        if frequency <= 0:
-            raise ValueError("frequency must be >0")
-        wfdb.setifreq(frequency)  #set the frequency
+    def __exit__(self):
+        pass
 
     property mode:
         """The current mode for the signal reader
 
-        Modes are 'frame' if using `getframe` or 'vector' if using `getvec`
+        The mode of the reader determines how the signal file is read in. Signals
+        can be read using the wfdb functions `getvec` or `getframe`. By default,
+        SignalReader uses `getvec`.
         """
         def __get__(self):
-            if self.use_frame:
+            if self.read_by_frame:
                 return 'frame'
             else:
-                return 'vector'
-
-    def __dealloc__(self):
-        pass
+                return 'vec'
+        def __set__(self, bint by_frame):
+            self.read_by_frame = True
+            #TODO: need to realloc the underlying signal

@@ -5,8 +5,8 @@
 
 function show_help()
 {
-    echo "USAGE: ./setup.sh [-b] [-c]"
-    echo "FLAGS: -b => build | -c => clean"
+    echo "USAGE: ./setup.sh [-b] [-c] [-t]"
+    echo "FLAGS: -b => build | -c => clean | -t => test"
 }
 
 function clean()

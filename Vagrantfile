@@ -12,7 +12,7 @@ apt-get update
 apt-get install -y build-essential  #req'd for compiling c
 apt-get install -y libcurl4-openssl-dev libexpat1-dev #req'd by wfdb
 
-apt-get install -y python3 python3-dev python3-pip
+apt-get install -y python3 python3-dev python3-pip python-dbg
 pip3 install -r /vagrant/requirements.txt
 echo Environment configuration successful
 
@@ -31,11 +31,9 @@ echo WFDB install success
 
 #BUILD THE MODULE
 cd /vagrant
-chmod +x setup.sh
-./setup.sh -c
-./setup.sh -b
 echo export LD_LIBRARY_PATH=/usr/local/lib64 >> ~/.bashrc
-py.test test  #run tests
+chmod +x setup.sh
+./setup.sh -cbt
 SCRIPT
 
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|

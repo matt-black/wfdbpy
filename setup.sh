@@ -3,6 +3,8 @@
 ## SETUP SCRIPT FOR BUILDING ##
 ## USAGE: ./setup.sh clean/build
 
+cd "$(dirname "$0")"
+
 function show_help()
 {
     echo "USAGE: ./setup.sh [-b] [-c] [-t]"

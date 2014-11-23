@@ -1,8 +1,9 @@
-"""
+"""OA
 Signal I/O utilities and classes for the WFDB library
 """
 cimport wfdbpy.wfdb as wfdb
 from wfdbpy.util.error import *
+from wfdbpy.api cimport string_t, _chars, time_t
 
 from cpython.mem cimport PyMem_Free, PyMem_Malloc, PyMem_Realloc
 
@@ -17,11 +18,10 @@ cdef class SignalInfo:
     """
 
     cdef bint read_only  # allow properties to be 'set'
-    cdef readonly char* record  # the record name
+    cdef char* record  # the record name
     cdef wfdb.WFDB_Siginfo* _siginfo  # the underlying C struct
 
-    def __cinit__(self, char* record, int num_signals, bint read_only):
-        self.record = record
+    def __cinit__(self, basestring record, int num_signals, bint read_only):
         self.read_only = read_only
         #initialize memory for the WFDB_Siginfo struct
         self._siginfo = <wfdb.WFDB_Siginfo*>PyMem_Malloc(
@@ -29,11 +29,17 @@ cdef class SignalInfo:
         if not self._siginfo:
             raise MemoryError("error initializing Siginfo struct memory")
         #fill the underlying struct values
-        if wfdb.isigopen(record, self._siginfo, num_signals) != num_signals:
+        if wfdb.isigopen(_chars(record), self._siginfo, num_signals) != num_signals:
             raise WFDB_CError("signal file did not have the expected # of signals")
+
+    def get_attr(self, int signal_number, string_t attr):
+        """Get the specified attribute for the signal at `signal_number`
+        """
+        raise NotImplementedError()
 
     def __dealloc__(self):
         PyMem_Free(self._siginfo)
+
 
 cdef class SignalStream:
     """Provides Pythonic, stream-like access to an input signal
@@ -53,17 +59,16 @@ cdef class SignalStream:
     cdef bint read_by_frame
     cdef wfdb.WFDB_Siginfo* _siginfo_arr  # siginfo array for initializing the signal, if standalone
 
-    def __cinit__(self, char* record, int num_signals,
-                  by_frame=False, bint standalone=False):
+    def __cinit__(self, basestring record, int num_signals,
+                  bint by_frame, bint standalone):
         cdef int sample_array_len  #length of sample array
 
-        self.record = record
         self.num_sig = num_signals
         #need to allocate the underlying siginfo array, if standalone
         if standalone:
             self._siginfo_arr = <wfdb.WFDB_Siginfo*>PyMem_Malloc(
                 num_signals * sizeof(wfdb.WFDB_Siginfo))
-            if wfdb.isigopen(record, self._siginfo_arr, num_signals) != num_signals:
+            if wfdb.isigopen(_chars(record), self._siginfo_arr, num_signals) != num_signals:
                 raise WFDB_Error("could not initialize the standalone stream")
 
         #establish reading mode for the stream
@@ -136,12 +141,13 @@ cdef class SignalReader:
     cdef readonly SignalStream stream
     cdef bint read_by_frame  # if True, use getframe... False -> getvec
 
-    def __cinit__(self, char* record, bint by_frame=False):
-        cdef int nsig = wfdb.isigopen(record, NULL, 0)
+    def __cinit__(self, basestring record, bint by_frame):
+        cdef int nsig = wfdb.isigopen(_chars(record), NULL, 0)
         if nsig <= 0:
             raise WFDB_CError("Error opening signal file for record")
         self.info = SignalInfo(record, nsig, read_only=True)
-        self.stream = SignalStream(record, nsig)
+        self.stream = SignalStream(record, nsig, by_frame=False,
+                                   standalone=False)
 
     def __iter__(self):
         return self.stream
@@ -154,6 +160,10 @@ cdef class SignalReader:
 
     def __exit__(self):
         pass
+
+    def read(self, time_t start, time_t stop):
+        cdef int _time
+        raise NotImplementedError()
 
     property mode:
         """The current mode for the signal reader

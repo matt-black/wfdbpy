@@ -30,6 +30,16 @@ INCLUDE_DIRS = [os.path.join(WFDB_HOME, "include", "wfdb"),
                 numpy.get_include()]
 
 #define the extensions
+ext_api = Extension("wfdbpy.api",
+                    sources=[os.path.join(SRC_DIR, "api.pxd"),
+                             os.path.join(SRC_DIR, "api.pyx")],
+                    include_dirs=INCLUDE_DIRS,
+                    libraries=["wfdb"],
+                    language="c",
+                    extra_compiler_args=["-fopenmp", "-O3"],
+                    extra_link_args=["-DSOME_DEFINE_OPT",
+                                     "-L{}/lib64/".format(WFDB_HOME)]
+                    )
 ext_conv = Extension("wfdbpy.convert",
                      sources=[os.path.join(SRC_DIR, "convert.pyx")],
                      include_dirs=INCLUDE_DIRS,
@@ -55,10 +65,11 @@ ext_util = Extension("wfdbpy.util.test",
                      language="c",
                      extra_compile_args=["-fopenmp", "-O3"],
                      extra_link_args=["-DSOME_DEFINE_OPT",
-                                      "-L{}/lib64/".format(WFDB_HOME)])
+                                      "-L{}/lib64/".format(WFDB_HOME)]
+                     )
 
 
-EXTENSIONS = [ext_conv, ext_sig, ext_util]
+EXTENSIONS = [ext_api, ext_conv, ext_sig, ext_util]
 
 if __name__ == "__main__":
     setup(install_requires=REQUIRES,

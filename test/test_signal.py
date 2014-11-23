@@ -6,7 +6,7 @@ from wfdbpy.util.test import *
 from wfdbpy.signal import *
 
 ##File-level variables
-record = bytes('100s', encoding='ascii')
+record = "100s"
 num_signals = 2  # number of signals in the 100s record (known value)
 
 class TestSignalStream:
@@ -24,7 +24,7 @@ class TestSignalStream:
         known_good = read_100s(10, by_frame=False)
         call_wfdbquit()
 
-        sig = SignalStream(record, num_signals, by_frame=False, standalone=True)
+        sig = SignalStream("100s", num_signals, by_frame=False, standalone=True)
         for i in range(10):
             assert next(sig) == known_good[i]
 
@@ -35,7 +35,7 @@ class TestSignalStream:
         known_good = read_100s(10, by_frame=True)
         call_wfdbquit()
 
-        sig = SignalStream(record, num_signals, by_frame=True, standalone=True)
+        sig = SignalStream("100s", num_signals, by_frame=True, standalone=True)
         for i in range(10):
             assert next(sig) == known_good[i]
 
@@ -44,7 +44,7 @@ class TestSignalInfo:
     """Tests for the SignalInfo class
     """
 
-    info = SignalInfo(record, num_signals, read_only=False)
+    info = SignalInfo("100s", num_signals, read_only=False)
 
     def test_read_props(self):
         """Read the properties of the SignalInfo object and make sure
